@@ -150,6 +150,60 @@ async def test_extracts_meetings_and_resolves_tomorrow(
     assert result.missing_fields == []
 
 
+async def test_emirati_date_overrides_model_and_is_removed_from_attendee() -> None:
+    service, _ = make_service(
+        {
+            "title": None,
+            "attendees": ["أحمد باچر"],
+            "date": "2026-09-25",
+            "time": "10:00",
+            "duration_minutes": None,
+            "location": None,
+            "agenda": None,
+        }
+    )
+    result = await service.extract(
+        request_for("create_meeting", "سو لي اجتماع مع أحمد باچر الساعة 10")
+    )
+    assert result.parameters.attendees == ["أحمد"]
+    assert result.parameters.date.isoformat() == "2026-09-26"
+    assert result.parameters.time.strftime("%H:%M") == "10:00"
+
+
+async def test_emirati_task_date_and_assignee_cleanup() -> None:
+    service, _ = make_service(
+        {
+            "title": "مراجعة التقرير",
+            "assignees": ["أحمد باجر"],
+            "due_date": None,
+            "due_time": None,
+            "priority": None,
+            "description": None,
+        }
+    )
+    result = await service.extract(
+        request_for("create_task", "كلف أحمد يراجع التقرير باجر")
+    )
+    assert result.parameters.assignees == ["أحمد"]
+    assert result.parameters.due_date.isoformat() == "2026-09-26"
+
+
+@pytest.mark.parametrize("person", ["باكر محمد", "باجر علي"])
+async def test_does_not_remove_leading_temporal_name_token(person: str) -> None:
+    service, _ = make_service(
+        {
+            "title": "مهمة",
+            "assignees": [person],
+            "due_date": None,
+            "due_time": None,
+            "priority": None,
+            "description": None,
+        }
+    )
+    result = await service.extract(request_for("create_task", f"كلف {person}"))
+    assert result.parameters.assignees == [person]
+
+
 async def test_resolves_arabic_email_pronoun_without_inventing_address() -> None:
     original = "اعمل اجتماع مع أحمد بكرة الساعة 10 وابعتله إيميل بالتفاصيل"
     service, provider = make_service(

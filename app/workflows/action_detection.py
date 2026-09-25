@@ -31,4 +31,9 @@ class ActionDetectionWorkflow(Workflow):
             "one unknown action containing the input as source_text. Do not extract detailed "
             "parameters, "
             "combine separate actions, or change their order."
+            " Treat Emirati/Gulf Arabic as a primary input style: سو لي or حط can introduce an "
+            "action, طرش and contextually دز mean send, and ذكرني or نبهني request a reminder. "
+            "For example, سو لي اجتماع مع أحمد باچر الساعة عشر وطرش له إيميل بالتفاصيل "
+            "وذكرني قبل الاجتماع بساعة contains create_meeting, send_email, and "
+            "create_reminder actions."
         )

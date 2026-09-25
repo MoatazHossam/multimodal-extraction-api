@@ -94,6 +94,21 @@ async def test_detects_single_action(text: str, action_type: str) -> None:
                 },
             ],
         ),
+        (
+            "سو لي اجتماع مع أحمد باچر الساعة عشر وطرش له إيميل بالتفاصيل "
+            "وذكرني قبل الاجتماع بساعة",
+            [
+                {
+                    "action_type": "create_meeting",
+                    "source_text": "سو لي اجتماع مع أحمد باچر الساعة عشر",
+                },
+                {"action_type": "send_email", "source_text": "طرش له إيميل بالتفاصيل"},
+                {
+                    "action_type": "create_reminder",
+                    "source_text": "ذكرني قبل الاجتماع بساعة",
+                },
+            ],
+        ),
     ],
 )
 async def test_preserves_order_and_cleanly_segments_multiple_actions(

@@ -19,6 +19,8 @@ COMMON_RULES = (
     "using only the caller-provided reference_datetime and timezone; never use the server clock. "
     "Dates must be YYYY-MM-DD and times HH:MM in 24-hour format. If a value is ambiguous, return "
     "null rather than guessing."
+    " Emirati/Gulf Arabic is a first-class input style. باچر, باجر, باكر, بكرة, عقب باچر, "
+    "اليوم, and الياي are scheduling terms, never parts of people's names. ويا means with."
 )
 
 
@@ -38,6 +40,8 @@ class TaskParameterWorkflow(ActionParameterWorkflow):
             f"{COMMON_RULES} Extract task parameters. Do not assume a priority or assignee. "
             "A concise title and description may be derived only from the explicitly requested "
             "work."
+            " Examples: كلف أحمد يراجع التقرير باچر; حط لسالم مهمة يخلص العرض اليوم; "
+            "سو مهمة حق محمد يتابع الموضوع."
         )
 
     def missing_fields(self, parameters: BaseModel) -> list[str]:
@@ -54,6 +58,8 @@ class MeetingParameterWorkflow(ActionParameterWorkflow):
         return (
             f"{COMMON_RULES} Extract meeting parameters. A concise title or agenda may be derived "
             "only from an explicitly stated meeting topic. Do not assume duration or location."
+            " Examples: سو لي اجتماع مع أحمد باچر الساعة عشر; رتب اجتماع ويا محمد الأحد "
+            "الياي; حط اجتماع بيني وبين سالم باجر."
         )
 
     def missing_fields(self, parameters: BaseModel) -> list[str]:
@@ -78,6 +84,8 @@ class EmailParameterWorkflow(ActionParameterWorkflow):
             f"{COMMON_RULES} Extract email parameters. Recipients may be names; never turn a name "
             "into a guessed email address. A concise subject and body draft may use only known "
             "context."
+            " Emirati send verbs include طرش and, when context is clear, دز. Examples: طرش "
+            "إيميل لأحمد; طرش له إيميل بالتفاصيل; دز له إيميل."
         )
 
     def missing_fields(self, parameters: BaseModel) -> list[str]:
@@ -100,6 +108,9 @@ class ReminderParameterWorkflow(ActionParameterWorkflow):
             f"{COMMON_RULES} Extract reminder parameters. For reminders relative to an event, keep "
             "date and time null unless safely known and set relative_to plus a signed "
             "offset_minutes (before is negative, after is positive). One hour before is -60."
+            " Examples: ذكرني قبل الاجتماع بساعة; نبهني قبل الموعد بنص ساعة; عقب الاجتماع "
+            "بساعة; بعد الاجتماع بساعتين. A quarter hour is 15, half an hour 30, one hour "
+            "60, and two hours 120. Do not resolve قبلها without a reliable antecedent."
         )
 
     def missing_fields(self, parameters: BaseModel) -> list[str]:
