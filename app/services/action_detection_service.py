@@ -3,6 +3,7 @@ from pydantic import ValidationError
 from app.ai.provider import AIProvider, AIProviderError
 from app.schemas.requests import ActionDetectionRequest
 from app.schemas.responses import ActionDetectionResponse
+from app.services.source_text_normalizer import normalize_action_source_texts
 from app.workflows.base import WorkflowRegistry
 
 
@@ -28,4 +29,5 @@ class ActionDetectionService:
                 "AI response did not match the action detection schema"
             ) from exc
 
-        return ActionDetectionResponse(text=request.text, actions=output.actions)
+        actions = normalize_action_source_texts(request.text, output.actions)
+        return ActionDetectionResponse(text=request.text, actions=actions)

@@ -99,9 +99,7 @@ async def test_detects_single_action(text: str, action_type: str) -> None:
 async def test_preserves_order_and_cleanly_segments_multiple_actions(
     text: str, actions: list[dict[str, str]]
 ) -> None:
-    service, _ = make_service(
-        {"actions": actions}
-    )
+    service, _ = make_service({"actions": actions})
 
     result = await service.detect(ActionDetectionRequest(text=text))
 
@@ -112,6 +110,66 @@ async def test_preserves_order_and_cleanly_segments_multiple_actions(
     ]
     assert [action.source_text for action in result.actions] == [
         action["source_text"] for action in actions
+    ]
+
+
+@pytest.mark.parametrize(
+    ("text", "oversized_source", "expected_sources"),
+    [
+        (
+            "اعمل اجتماع مع أحمد بكرة الساعة 10 وابعتله إيميل بالتفاصيل "
+            "وحطلي تذكير قبل الاجتماع بساعة",
+            "اعمل اجتماع مع أحمد بكرة الساعة 10 وابعتله إيميل بالتفاصيل "
+            "وحطلي تذكير قبل الاجتماع بساعة",
+            [
+                "اعمل اجتماع مع أحمد بكرة الساعة 10",
+                "ابعتله إيميل بالتفاصيل",
+                "حطلي تذكير قبل الاجتماع بساعة",
+            ],
+        ),
+        (
+            "Schedule a meeting with Ahmed tomorrow at 10, email him the details, "
+            "and remind me one hour before.",
+            "Schedule a meeting with Ahmed tomorrow at 10, email him the details, "
+            "and remind me one hour before.",
+            [
+                "Schedule a meeting with Ahmed tomorrow at 10",
+                "email him the details",
+                "remind me one hour before",
+            ],
+        ),
+    ],
+)
+async def test_repairs_oversized_first_source_text_after_validation(
+    text: str, oversized_source: str, expected_sources: list[str]
+) -> None:
+    service, _ = make_service(
+        {
+            "actions": [
+                {"action_type": "create_meeting", "source_text": oversized_source},
+                {"action_type": "send_email", "source_text": expected_sources[1]},
+                {"action_type": "create_reminder", "source_text": expected_sources[2]},
+            ]
+        }
+    )
+
+    result = await service.detect(ActionDetectionRequest(text=text))
+
+    assert [action.source_text for action in result.actions] == expected_sources
+
+
+async def test_retains_validated_output_when_exact_segmentation_is_not_reliable() -> None:
+    text = "Schedule a meeting, then email Ahmed"
+    model_actions = [
+        {"action_type": "create_meeting", "source_text": text},
+        {"action_type": "send_email", "source_text": "send Ahmed an email"},
+    ]
+    service, _ = make_service({"actions": model_actions})
+
+    result = await service.detect(ActionDetectionRequest(text=text))
+
+    assert [action.source_text for action in result.actions] == [
+        action["source_text"] for action in model_actions
     ]
 
 
