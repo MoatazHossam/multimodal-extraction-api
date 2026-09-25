@@ -4,7 +4,13 @@ from pydantic import ValidationError
 
 from app.ai.provider import AIProvider, AIProviderError
 from app.schemas.requests import ActionParameterExtractionRequest
-from app.schemas.responses import ActionParameterExtractionResponse
+from app.schemas.responses import (
+    ActionParameterExtractionResponse,
+    MeetingParameters,
+    ReminderParameters,
+    TaskParameters,
+)
+from app.services.temporal_resolver import remove_temporal_entity_suffix, resolve_temporal
 from app.workflows.action_parameters import ActionParameterWorkflow
 from app.workflows.base import WorkflowNotFoundError, WorkflowRegistry
 
@@ -57,6 +63,38 @@ class ActionParameterExtractionService:
             raise ActionParameterOutputError(
                 "AI response did not match the action parameter schema"
             ) from exc
+
+        temporal = resolve_temporal(
+            request.action.source_text, request.reference_datetime, request.timezone
+        )
+        if isinstance(parameters, MeetingParameters):
+            update = {
+                "attendees": [
+                    remove_temporal_entity_suffix(person, request.action.source_text)
+                    for person in parameters.attendees
+                ]
+            }
+            if temporal.date is not None:
+                update["date"] = temporal.date
+            parameters = parameters.model_copy(update=update)
+        elif isinstance(parameters, TaskParameters):
+            update = {
+                "assignees": [
+                    remove_temporal_entity_suffix(person, request.action.source_text)
+                    for person in parameters.assignees
+                ]
+            }
+            if temporal.date is not None:
+                update["due_date"] = temporal.date
+            parameters = parameters.model_copy(update=update)
+        elif isinstance(parameters, ReminderParameters):
+            update = {}
+            if temporal.date is not None:
+                update["date"] = temporal.date
+            if temporal.relative_to is not None:
+                update["relative_to"] = temporal.relative_to
+                update["offset_minutes"] = temporal.offset_minutes
+            parameters = parameters.model_copy(update=update)
 
         return ActionParameterExtractionResponse(
             action_type=request.action.action_type,
