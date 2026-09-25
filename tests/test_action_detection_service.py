@@ -199,6 +199,44 @@ def test_prompt_requires_minimal_action_only_source_text_with_full_context_later
     assert "original full text as context" in prompt
 
 
+def test_prompt_distinguishes_emirati_meetings_from_tasks() -> None:
+    prompt = ActionDetectionWorkflow().system_prompt
+
+    assert "اجتماع or meeting is create_meeting" in prompt
+    assert "سو اجتماع باكر الساعة ١٠ means create_meeting" in prompt
+    assert "حط اجتماع ويا أحمد الأحد الياي means create_meeting" in prompt
+    assert "سو مهمة لأحمد يراجع التقرير means create_task" in prompt
+
+
+async def test_corrects_real_emirati_multi_action_regression_after_segmentation() -> None:
+    text = "طرش إيميل لأحمد اطلب منه تقرير عن الحالات اليومية وسو اجتماع باكر الساعة ١٠"
+    service, _ = make_service(
+        {
+            "actions": [
+                {
+                    "action_type": "send_email",
+                    "source_text": text,
+                },
+                {
+                    "action_type": "create_task",
+                    "source_text": "سو اجتماع باكر الساعة ١٠",
+                },
+            ]
+        }
+    )
+
+    result = await service.detect(ActionDetectionRequest(text=text))
+
+    assert [action.action_type for action in result.actions] == [
+        "send_email",
+        "create_meeting",
+    ]
+    assert [action.source_text for action in result.actions] == [
+        "طرش إيميل لأحمد اطلب منه تقرير عن الحالات اليومية",
+        "سو اجتماع باكر الساعة ١٠",
+    ]
+
+
 @pytest.mark.parametrize(
     "provider_output",
     [

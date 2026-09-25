@@ -3,6 +3,7 @@ from pydantic import ValidationError
 from app.ai.provider import AIProvider, AIProviderError
 from app.schemas.requests import ActionDetectionRequest
 from app.schemas.responses import ActionDetectionResponse
+from app.services.action_type_normalizer import normalize_action_types
 from app.services.source_text_normalizer import normalize_action_source_texts
 from app.workflows.base import WorkflowRegistry
 
@@ -30,4 +31,5 @@ class ActionDetectionService:
             ) from exc
 
         actions = normalize_action_source_texts(request.text, output.actions)
+        actions = normalize_action_types(actions)
         return ActionDetectionResponse(text=request.text, actions=actions)
