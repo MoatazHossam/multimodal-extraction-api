@@ -181,9 +181,7 @@ async def test_emirati_task_date_and_assignee_cleanup() -> None:
             "description": None,
         }
     )
-    result = await service.extract(
-        request_for("create_task", "كلف أحمد يراجع التقرير باجر")
-    )
+    result = await service.extract(request_for("create_task", "كلف أحمد يراجع التقرير باجر"))
     assert result.parameters.assignees == ["أحمد"]
     assert result.parameters.due_date.isoformat() == "2026-09-26"
 
@@ -216,7 +214,93 @@ async def test_resolves_arabic_email_pronoun_without_inventing_address() -> None
 
     assert result.parameters.to == ["أحمد"]
     assert "@" not in result.parameters.to[0]
-    assert json.loads(provider.user_text or "")["original_text"] == original
+    context = json.loads(provider.user_text or "")
+    assert context["prior_context"] == "اعمل اجتماع مع أحمد بكرة الساعة 10 و"
+    assert context["action_source_text"] == "ابعتله إيميل بالتفاصيل"
+
+
+async def test_emirati_action_context_isolates_future_actions() -> None:
+    original = (
+        "سو لي اجتماع مع أحمد باچر الساعة عشر وطرش له إيميل بالتفاصيل وذكرني قبل الاجتماع بساعة"
+    )
+    service, provider = make_service(
+        {
+            "title": None,
+            "attendees": ["أحمد"],
+            "date": "2026-09-26",
+            "time": "10:00",
+            "duration_minutes": None,
+            "location": None,
+            "agenda": None,
+        }
+    )
+
+    result = await service.extract(
+        request_for(
+            "create_meeting",
+            "سو لي اجتماع مع أحمد باچر الساعة عشر",
+            original_text=original,
+        )
+    )
+
+    context = json.loads(provider.user_text or "")
+    assert context == {
+        "prior_context": "",
+        "action_source_text": "سو لي اجتماع مع أحمد باچر الساعة عشر",
+        "reference_datetime": "2026-09-25T04:45:00+04:00",
+        "timezone": "Asia/Dubai",
+    }
+    serialized_context = provider.user_text or ""
+    assert "طرش له إيميل بالتفاصيل" not in serialized_context
+    assert "ذكرني قبل الاجتماع بساعة" not in serialized_context
+    assert result.parameters.title is None
+    assert result.parameters.agenda is None
+    assert "Email, reminder, and task instructions" in (provider.system_prompt or "")
+
+
+async def test_emirati_email_keeps_meeting_context_for_pronoun_resolution() -> None:
+    original = (
+        "سو لي اجتماع مع أحمد باچر الساعة عشر وطرش له إيميل بالتفاصيل وذكرني قبل الاجتماع بساعة"
+    )
+    service, provider = make_service(
+        {"to": ["أحمد"], "cc": [], "subject": None, "body": "تفاصيل الاجتماع"}
+    )
+
+    result = await service.extract(
+        request_for("send_email", "وطرش له إيميل بالتفاصيل", original_text=original)
+    )
+
+    context = json.loads(provider.user_text or "")
+    assert "اجتماع مع أحمد" in context["prior_context"]
+    assert context["action_source_text"] == "وطرش له إيميل بالتفاصيل"
+    assert "ذكرني قبل الاجتماع بساعة" not in (provider.user_text or "")
+    assert result.parameters.to == ["أحمد"]
+
+
+async def test_emirati_reminder_keeps_preceding_action_context() -> None:
+    original = (
+        "سو لي اجتماع مع أحمد باچر الساعة عشر وطرش له إيميل بالتفاصيل وذكرني قبل الاجتماع بساعة"
+    )
+    service, provider = make_service(
+        {
+            "reminder_text": "تذكير بالاجتماع",
+            "date": None,
+            "time": None,
+            "relative_to": "الاجتماع",
+            "offset_minutes": -60,
+        }
+    )
+
+    result = await service.extract(
+        request_for("create_reminder", "وذكرني قبل الاجتماع بساعة", original_text=original)
+    )
+
+    context = json.loads(provider.user_text or "")
+    assert "اجتماع مع أحمد" in context["prior_context"]
+    assert "وطرش له إيميل بالتفاصيل" in context["prior_context"]
+    assert context["action_source_text"] == "وذكرني قبل الاجتماع بساعة"
+    assert result.parameters.relative_to == "الاجتماع"
+    assert result.parameters.offset_minutes == -60
 
 
 async def test_extracts_reminder_relative_to_meeting() -> None:
@@ -230,9 +314,7 @@ async def test_extracts_reminder_relative_to_meeting() -> None:
         }
     )
 
-    result = await service.extract(
-        request_for("create_reminder", "حطلي تذكير قبل الاجتماع بساعة")
-    )
+    result = await service.extract(request_for("create_reminder", "حطلي تذكير قبل الاجتماع بساعة"))
 
     assert result.parameters.offset_minutes == -60
     assert result.missing_fields == []

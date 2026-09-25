@@ -11,11 +11,14 @@ from app.schemas.responses import (
 from app.workflows.base import Workflow
 
 COMMON_RULES = (
-    "Return only JSON conforming exactly to the supplied schema. Extract only facts supported by "
-    "the action clause or original full text. Never invent people, email addresses, dates, times, "
+    "Return only JSON conforming exactly to the supplied schema. Extract parameters only for "
+    "action_source_text. prior_context exists only to resolve references, pronouns, people, "
+    "events, or already-mentioned details. Never convert a different action in prior_context "
+    "into parameters of the current action. Never use text after the current action. Never invent "
+    "people, email addresses, dates, times, "
     "locations, priorities, or factual details. Use null or an empty list when information is not "
     "available. Preserve Arabic or English names and wording appropriately. Resolve pronouns from "
-    "the original text only when the reference is reliable. Resolve relative date expressions "
+    "prior_context only when the reference is reliable. Resolve relative date expressions "
     "using only the caller-provided reference_datetime and timezone; never use the server clock. "
     "Dates must be YYYY-MM-DD and times HH:MM in 24-hour format. If a value is ambiguous, return "
     "null rather than guessing."
@@ -57,7 +60,10 @@ class MeetingParameterWorkflow(ActionParameterWorkflow):
     def system_prompt(self) -> str:
         return (
             f"{COMMON_RULES} Extract meeting parameters. A concise title or agenda may be derived "
-            "only from an explicitly stated meeting topic. Do not assume duration or location."
+            "only from an explicit meeting topic in action_source_text, or from prior_context when "
+            "action_source_text clearly references that topic. Email, reminder, and task "
+            "instructions must never become a meeting title or agenda. Do not assume duration or "
+            "location."
             " Examples: سو لي اجتماع مع أحمد باچر الساعة عشر; رتب اجتماع ويا محمد الأحد "
             "الياي; حط اجتماع بيني وبين سالم باجر."
         )
@@ -119,9 +125,7 @@ class ReminderParameterWorkflow(ActionParameterWorkflow):
         if not reminder.reminder_text:
             missing.append("reminder_text")
         has_absolute_schedule = reminder.date is not None and reminder.time is not None
-        has_relative_schedule = (
-            bool(reminder.relative_to) and reminder.offset_minutes is not None
-        )
+        has_relative_schedule = bool(reminder.relative_to) and reminder.offset_minutes is not None
         if not has_absolute_schedule and not has_relative_schedule:
             missing.append("schedule")
         return missing

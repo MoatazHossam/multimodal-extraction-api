@@ -10,6 +10,7 @@ from app.schemas.responses import (
     ReminderParameters,
     TaskParameters,
 )
+from app.services.action_context_builder import build_action_context
 from app.services.temporal_resolver import remove_temporal_entity_suffix, resolve_temporal
 from app.workflows.action_parameters import ActionParameterWorkflow
 from app.workflows.base import WorkflowNotFoundError, WorkflowRegistry
@@ -42,11 +43,11 @@ class ActionParameterExtractionService:
                 f"Parameter extraction is not supported for {request.action.action_type}"
             )
 
+        action_context = build_action_context(request.original_text, request.action.source_text)
         context = json.dumps(
             {
-                "original_text": request.original_text,
-                "action_source_text": request.action.source_text,
-                "action_type": request.action.action_type,
+                "prior_context": action_context.prior_context,
+                "action_source_text": action_context.action_source_text,
                 "reference_datetime": request.reference_datetime.isoformat(),
                 "timezone": request.timezone,
             },
