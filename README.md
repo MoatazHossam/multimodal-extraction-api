@@ -1,9 +1,9 @@
 # Multimodal Extraction API
 
-A portable, on-premises FastAPI foundation for converting Arabic or English text into
-workflow-specific structured JSON with a locally hosted Ollama model. This milestone accepts text
-only; audio transcription, OCR, uploads, persistence, authentication, and external integrations are
-deliberately out of scope.
+A portable, on-premises FastAPI foundation for converting Arabic or English text into structured
+JSON with a locally hosted Ollama model. This milestone accepts text for action detection or
+workflow-specific extraction. Audio transcription, OCR, uploads, persistence, authentication,
+action execution, and external integrations are deliberately out of scope.
 
 ## Architecture
 
@@ -14,15 +14,17 @@ Text extraction (future adapters for OCR and transcription)
     ↓
 Normalized text
     ↓
-Workflow + provider-neutral extraction service
+Action detector → ordered actions[] → future action-specific schemas
+    or
+Workflow-specific extraction
     ↓
-Validated structured JSON
+Provider-neutral service + validated structured JSON
 ```
 
-HTTP controllers know only the extraction service. The service selects a workflow, each workflow
-owns its prompt and Pydantic output model, and the `AIProvider` interface isolates Ollama. Adding a
-workflow means defining a `Workflow` and registering it in `app/main.py`; it does not require a new
-provider or controller.
+HTTP controllers know only their application services. Services select a workflow, each workflow
+owns its prompt and Pydantic output model, and the `AIProvider` interface isolates Ollama. Action
+detection uses the same provider and workflow registry as detailed extraction. Adding a workflow
+does not require a new provider.
 
 ## API
 
@@ -46,6 +48,44 @@ curl -X POST http://127.0.0.1:8000/api/v1/extract/text \
 The response contains the original text, selected workflow, validated workflow data, and the names
 of fields for which the source contained no value. Interactive OpenAPI documentation is available
 at `http://127.0.0.1:8000/docs`.
+
+### Detect actions
+
+Detect every supported action in Arabic or English text without executing it or extracting its
+detailed parameters:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/actions/detect \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "text": "Schedule a meeting with Ahmed tomorrow at 10, email him the details, and remind me one hour before."
+  }'
+```
+
+```json
+{
+  "success": true,
+  "text": "Schedule a meeting with Ahmed tomorrow at 10, email him the details, and remind me one hour before.",
+  "actions": [
+    {
+      "action_type": "create_meeting",
+      "source_text": "Schedule a meeting with Ahmed tomorrow at 10"
+    },
+    {
+      "action_type": "send_email",
+      "source_text": "email him the details"
+    },
+    {
+      "action_type": "create_reminder",
+      "source_text": "remind me one hour before"
+    }
+  ]
+}
+```
+
+Supported action types are `create_task`, `create_meeting`, `send_email`, `create_request`,
+`create_reminder`, `create_note`, `follow_up`, and `unknown`. Results preserve source order. A
+non-actionable input produces one `unknown` item containing the original text.
 
 ## Configuration
 
@@ -114,5 +154,5 @@ be added in a later milestone without changing the application.
 3. Register the workflow in the `WorkflowRegistry` in `app/main.py`.
 4. Add service and API tests covering valid, missing, and malformed fields.
 
-Planned names such as `voice_action`, `meeting_action`, `email_action`, and `task_action` can reuse
-the same endpoint and provider contract when their schemas and prompts are defined.
+Future task, meeting, email, and other action-specific extraction workflows can consume the action
+detector's ordered output while reusing the same provider contract.
