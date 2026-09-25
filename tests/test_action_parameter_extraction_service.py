@@ -170,6 +170,95 @@ async def test_emirati_date_overrides_model_and_is_removed_from_attendee() -> No
     assert result.parameters.time.strftime("%H:%M") == "10:00"
 
 
+@pytest.mark.parametrize(
+    ("source_text", "attendee"),
+    [
+        ("سو اجتماع مع أحمد باچر", "أحمد"),
+        ("رتب اجتماع ويا سالم", "سالم"),
+        ("حط اجتماع بيني وبين محمد", "محمد"),
+    ],
+)
+async def test_retains_attendee_named_in_current_meeting(
+    source_text: str, attendee: str
+) -> None:
+    service, _ = make_service(
+        {
+            "title": None,
+            "attendees": [attendee],
+            "date": None,
+            "time": None,
+            "duration_minutes": None,
+            "location": None,
+            "agenda": None,
+        }
+    )
+
+    result = await service.extract(request_for("create_meeting", source_text))
+
+    assert result.parameters.attendees == [attendee]
+
+
+async def test_meeting_reference_allows_attendee_from_prior_context() -> None:
+    original = "كلم أحمد وبعدها سو اجتماع وياه باچر"
+    service, _ = make_service(
+        {
+            "title": None,
+            "attendees": ["أحمد"],
+            "date": None,
+            "time": None,
+            "duration_minutes": None,
+            "location": None,
+            "agenda": None,
+        }
+    )
+
+    result = await service.extract(
+        request_for("create_meeting", "سو اجتماع وياه باچر", original_text=original)
+    )
+
+    assert result.parameters.attendees == ["أحمد"]
+
+
+async def test_task_drops_assignee_found_only_in_prior_context() -> None:
+    original = "طرش لأحمد إيميل وسو مهمة لمراجعة التقرير"
+    service, _ = make_service(
+        {
+            "title": "مراجعة التقرير",
+            "assignees": ["أحمد"],
+            "due_date": None,
+            "due_time": None,
+            "priority": None,
+            "description": "مراجعة التقرير",
+        }
+    )
+
+    result = await service.extract(
+        request_for("create_task", "سو مهمة لمراجعة التقرير", original_text=original)
+    )
+
+    assert result.parameters.assignees == []
+
+
+async def test_task_reference_allows_assignee_from_prior_context() -> None:
+    original = "كلم أحمد وبعدها سو له مهمة لمراجعة التقرير"
+    service, _ = make_service(
+        {
+            "title": "مراجعة التقرير",
+            "assignees": ["أحمد"],
+            "due_date": None,
+            "due_time": None,
+            "priority": None,
+            "description": "مراجعة التقرير",
+        }
+    )
+
+    result = await service.extract(
+        request_for("create_task", "سو له مهمة لمراجعة التقرير", original_text=original)
+    )
+
+    assert result.parameters.assignees == ["أحمد"]
+
+
 async def test_emirati_task_date_and_assignee_cleanup() -> None:
     service, _ = make_service(
         {
