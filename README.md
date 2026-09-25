@@ -2,8 +2,9 @@
 
 A portable, on-premises FastAPI foundation for converting Arabic or English text into structured
 JSON with a locally hosted Ollama model. This milestone accepts text for action detection or
-workflow-specific extraction. Audio transcription, OCR, uploads, persistence, authentication,
-action execution, and external integrations are deliberately out of scope.
+one-call action parsing, as well as workflow-specific extraction. Audio transcription, OCR,
+uploads, persistence, authentication, action execution, and external integrations are deliberately
+out of scope.
 
 ## Architecture
 
@@ -86,6 +87,29 @@ curl -X POST http://127.0.0.1:8000/api/v1/actions/detect \
 Supported action types are `create_task`, `create_meeting`, `send_email`, `create_request`,
 `create_reminder`, `create_note`, `follow_up`, and `unknown`. Results preserve source order. A
 non-actionable input produces one `unknown` item containing the original text.
+
+### Parse actions and parameters
+
+Detect every action and extract the supported actions' parameters in one request. Extraction runs
+sequentially in source order, and the endpoint never executes an action. The timestamp must include
+a UTC offset and the timezone must be an IANA timezone name.
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/actions/parse \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "text": "سو لي اجتماع مع أحمد باچر الساعة عشر وطرش له إيميل بالتفاصيل وذكرني قبل الاجتماع بساعة",
+    "reference_datetime": "2026-09-25T05:50:00+04:00",
+    "timezone": "Asia/Dubai"
+  }'
+```
+
+The ordered response combines detection and parameter extraction. `create_task`,
+`create_meeting`, `send_email`, and `create_reminder` have `parameter_status: "extracted"` and
+their validated parameter object. Other detected types remain in the response with
+`parameters: null`, an empty `missing_fields` list, and `parameter_status: "not_supported"` rather
+than failing the request. Provider timeouts return HTTP 504, provider/model failures return HTTP
+502, and invalid requests return HTTP 422.
 
 ### Extract action parameters
 

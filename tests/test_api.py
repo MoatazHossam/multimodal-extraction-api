@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from app.ai.provider import AIProvider
 from app.main import create_app
+from app.schemas.responses import ActionParsingResponse, ParsedUnsupportedAction
 from app.services.action_detection_service import ActionDetectionService
 from app.services.action_parameter_extraction_service import ActionParameterExtractionService
 from app.services.extraction_service import ExtractionService
@@ -64,6 +65,18 @@ class ParameterAPIStubProvider(AIProvider):
             "location": None,
             "agenda": None,
         }
+
+
+class ParsingAPIStubService:
+    async def parse(self, request: Any) -> ActionParsingResponse:
+        return ActionParsingResponse(
+            text=request.text,
+            actions=[
+                ParsedUnsupportedAction(
+                    action_type="create_note", source_text=request.text
+                )
+            ],
+        )
 
 
 def test_health() -> None:
@@ -158,3 +171,55 @@ def test_unsupported_parameter_action_returns_422_without_calling_provider() -> 
             },
         )
     assert response.status_code == 422
+
+
+def test_action_parsing_endpoint_returns_unsupported_actions_without_failure() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        app.state.action_parsing_service = ParsingAPIStubService()
+        response = client.post(
+            "/api/v1/actions/parse",
+            json={
+                "text": "اكتب ملاحظة",
+                "reference_datetime": "2026-09-25T05:50:00+04:00",
+                "timezone": "Asia/Dubai",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "success": True,
+        "text": "اكتب ملاحظة",
+        "actions": [
+            {
+                "action_type": "create_note",
+                "source_text": "اكتب ملاحظة",
+                "parameters": None,
+                "missing_fields": [],
+                "parameter_status": "not_supported",
+            }
+        ],
+    }
+
+
+def test_action_parsing_request_reuses_temporal_validation() -> None:
+    with TestClient(create_app()) as client:
+        naive_datetime = client.post(
+            "/api/v1/actions/parse",
+            json={
+                "text": "ذكرني",
+                "reference_datetime": "2026-09-25T05:50:00",
+                "timezone": "Asia/Dubai",
+            },
+        )
+        invalid_timezone = client.post(
+            "/api/v1/actions/parse",
+            json={
+                "text": "ذكرني",
+                "reference_datetime": "2026-09-25T05:50:00+04:00",
+                "timezone": "Dubai",
+            },
+        )
+
+    assert naive_datetime.status_code == 422
+    assert invalid_timezone.status_code == 422
