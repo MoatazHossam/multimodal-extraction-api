@@ -11,6 +11,11 @@ from app.schemas.responses import (
     TaskParameters,
 )
 from app.services.action_context_builder import build_action_context
+from app.services.entity_provenance import (
+    MEETING_PARTICIPANT_REFERENCES,
+    TASK_ASSIGNEE_REFERENCES,
+    filter_entities_by_provenance,
+)
 from app.services.temporal_resolver import remove_temporal_entity_suffix, resolve_temporal
 from app.workflows.action_parameters import ActionParameterWorkflow
 from app.workflows.base import WorkflowNotFoundError, WorkflowRegistry
@@ -69,21 +74,33 @@ class ActionParameterExtractionService:
             request.action.source_text, request.reference_datetime, request.timezone
         )
         if isinstance(parameters, MeetingParameters):
+            cleaned_attendees = [
+                remove_temporal_entity_suffix(person, request.action.source_text)
+                for person in parameters.attendees
+            ]
             update = {
-                "attendees": [
-                    remove_temporal_entity_suffix(person, request.action.source_text)
-                    for person in parameters.attendees
-                ]
+                "attendees": filter_entities_by_provenance(
+                    cleaned_attendees,
+                    action_source_text=action_context.action_source_text,
+                    prior_context=action_context.prior_context,
+                    participant_references=MEETING_PARTICIPANT_REFERENCES,
+                )
             }
             if temporal.date is not None:
                 update["date"] = temporal.date
             parameters = parameters.model_copy(update=update)
         elif isinstance(parameters, TaskParameters):
+            cleaned_assignees = [
+                remove_temporal_entity_suffix(person, request.action.source_text)
+                for person in parameters.assignees
+            ]
             update = {
-                "assignees": [
-                    remove_temporal_entity_suffix(person, request.action.source_text)
-                    for person in parameters.assignees
-                ]
+                "assignees": filter_entities_by_provenance(
+                    cleaned_assignees,
+                    action_source_text=action_context.action_source_text,
+                    prior_context=action_context.prior_context,
+                    participant_references=TASK_ASSIGNEE_REFERENCES,
+                )
             }
             if temporal.date is not None:
                 update["due_date"] = temporal.date

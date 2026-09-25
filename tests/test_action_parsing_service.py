@@ -137,7 +137,7 @@ async def test_real_emirati_classification_regression_is_parsed_end_to_end() -> 
             },
             {
                 "title": None,
-                "attendees": [],
+                "attendees": ["أحمد باكر"],
                 "date": None,
                 "time": "10:00",
                 "duration_minutes": None,
@@ -153,7 +153,11 @@ async def test_real_emirati_classification_regression_is_parsed_end_to_end() -> 
     assert result.actions[0].parameters.to == ["أحمد"]
     assert "@" not in result.actions[0].parameters.to[0]
     assert "الحالات اليومية" in result.actions[0].parameters.body
-    assert result.actions[1].parameters.date.isoformat() == "2026-09-26"
+    meeting = result.actions[1]
+    assert meeting.parameters.attendees == []
+    assert "attendees" in meeting.missing_fields
+    assert meeting.parameters.date.isoformat() == "2026-09-26"
+    assert meeting.parameters.time.strftime("%H:%M") == "10:00"
 
 
 async def test_unsupported_actions_are_returned_without_parameter_generation() -> None:

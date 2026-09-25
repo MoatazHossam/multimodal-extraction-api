@@ -41,6 +41,9 @@ class TaskParameterWorkflow(ActionParameterWorkflow):
     def system_prompt(self) -> str:
         return (
             f"{COMMON_RULES} Extract task parameters. Do not assume a priority or assignee. "
+            "A person appearing only in prior_context is not automatically an assignee. Use a "
+            "prior person only when action_source_text explicitly refers back to them as the "
+            "assignee. "
             "A concise title and description may be derived only from the explicitly requested "
             "work."
             " Examples: كلف أحمد يراجع التقرير باچر; حط لسالم مهمة يخلص العرض اليوم; "
@@ -59,8 +62,11 @@ class MeetingParameterWorkflow(ActionParameterWorkflow):
     @property
     def system_prompt(self) -> str:
         return (
-            f"{COMMON_RULES} Extract meeting parameters. A concise title or agenda may be derived "
-            "only from an explicit meeting topic in action_source_text, or from prior_context when "
+            f"{COMMON_RULES} Extract meeting parameters. "
+            "A person appearing only in prior_context is not automatically an attendee. Use a "
+            "prior person only when action_source_text explicitly refers back to them as a "
+            "participant. A concise title or agenda may be derived only from an explicit meeting "
+            "topic in action_source_text, or from prior_context when "
             "action_source_text clearly references that topic. Email, reminder, and task "
             "instructions must never become a meeting title or agenda. Do not assume duration or "
             "location."
