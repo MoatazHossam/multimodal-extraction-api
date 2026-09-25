@@ -4,7 +4,9 @@ from fastapi.testclient import TestClient
 
 from app.ai.provider import AIProvider
 from app.main import create_app
+from app.services.action_detection_service import ActionDetectionService
 from app.services.extraction_service import ExtractionService
+from app.workflows.action_detection import ActionDetectionWorkflow
 from app.workflows.assistance_request import AssistanceRequestWorkflow
 from app.workflows.base import WorkflowRegistry
 
@@ -23,6 +25,23 @@ class APIStubProvider(AIProvider):
             "request_type": "financial_assistance",
             "requester_name": None,
             "action_needed": "مساعدة في دفع المصروفات الدراسية",
+        }
+
+
+class ActionAPIStubProvider(AIProvider):
+    async def extract_structured(
+        self,
+        *,
+        system_prompt: str,
+        user_text: str,
+        output_schema: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "actions": [
+                {"action_type": "create_meeting", "source_text": "Schedule a meeting"},
+                {"action_type": "send_email", "source_text": "email him the details"},
+                {"action_type": "create_reminder", "source_text": "remind me before"},
+            ]
         }
 
 
@@ -59,3 +78,23 @@ def test_blank_text_is_rejected() -> None:
         )
     assert response.status_code == 422
 
+
+def test_action_detection_endpoint_returns_ordered_actions() -> None:
+    text = "Schedule a meeting, email him the details, and remind me before."
+    app = create_app()
+    with TestClient(app) as client:
+        app.state.action_detection_service = ActionDetectionService(
+            ActionAPIStubProvider(), WorkflowRegistry([ActionDetectionWorkflow()])
+        )
+        response = client.post("/api/v1/actions/detect", json={"text": text})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "success": True,
+        "text": text,
+        "actions": [
+            {"action_type": "create_meeting", "source_text": "Schedule a meeting"},
+            {"action_type": "send_email", "source_text": "email him the details"},
+            {"action_type": "create_reminder", "source_text": "remind me before"},
+        ],
+    }
