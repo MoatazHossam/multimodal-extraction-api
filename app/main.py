@@ -10,6 +10,7 @@ from app.config import Settings, get_settings
 from app.schemas.responses import HealthResponse
 from app.services.action_detection_service import ActionDetectionService
 from app.services.action_parameter_extraction_service import ActionParameterExtractionService
+from app.services.action_parsing_service import ActionParsingService
 from app.services.extraction_service import ExtractionService
 from app.workflows.action_detection import ActionDetectionWorkflow
 from app.workflows.assistance_request import AssistanceRequestWorkflow
@@ -43,6 +44,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.extraction_service = ExtractionService(provider, registry)
         app.state.action_detection_service = ActionDetectionService(provider, registry)
         app.state.action_parameter_service = ActionParameterExtractionService(provider, registry)
+        app.state.action_parsing_service = ActionParsingService(
+            app.state.action_detection_service, app.state.action_parameter_service
+        )
         yield
         await provider.close()
 

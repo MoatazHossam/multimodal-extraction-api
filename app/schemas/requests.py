@@ -33,20 +33,11 @@ class ActionDetectionRequest(BaseModel):
         return value
 
 
-class ActionParameterExtractionRequest(BaseModel):
+class TemporalContextRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    original_text: str = Field(min_length=1, max_length=50_000)
-    action: DetectedAction
     reference_datetime: datetime
     timezone: str = Field(min_length=1, max_length=100)
-
-    @field_validator("original_text")
-    @classmethod
-    def reject_blank_original_text(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("original_text must not be blank")
-        return value
 
     @field_validator("reference_datetime")
     @classmethod
@@ -62,4 +53,27 @@ class ActionParameterExtractionRequest(BaseModel):
             ZoneInfo(value)
         except ZoneInfoNotFoundError as exc:
             raise ValueError("timezone must be a valid IANA timezone") from exc
+        return value
+
+
+class ActionParameterExtractionRequest(TemporalContextRequest):
+    original_text: str = Field(min_length=1, max_length=50_000)
+    action: DetectedAction
+
+    @field_validator("original_text")
+    @classmethod
+    def reject_blank_original_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("original_text must not be blank")
+        return value
+
+
+class ActionParsingRequest(TemporalContextRequest):
+    text: str = Field(min_length=1, max_length=50_000)
+
+    @field_validator("text")
+    @classmethod
+    def reject_blank_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("text must not be blank")
         return value

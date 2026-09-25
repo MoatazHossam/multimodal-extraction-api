@@ -108,6 +108,10 @@ class ReminderParameters(BaseModel):
 
 
 type ActionParameters = TaskParameters | MeetingParameters | EmailParameters | ReminderParameters
+type SupportedActionType = Literal[
+    "create_task", "create_meeting", "send_email", "create_reminder"
+]
+type UnsupportedActionType = Literal["create_request", "create_note", "follow_up", "unknown"]
 
 
 class ActionParameterExtractionResponse(BaseModel):
@@ -116,3 +120,34 @@ class ActionParameterExtractionResponse(BaseModel):
     source_text: str
     parameters: ActionParameters
     missing_fields: list[str]
+
+
+class ParsedSupportedAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action_type: SupportedActionType
+    source_text: str
+    parameters: ActionParameters
+    missing_fields: list[str]
+    parameter_status: Literal["extracted"] = "extracted"
+
+
+class ParsedUnsupportedAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action_type: UnsupportedActionType
+    source_text: str
+    parameters: None = None
+    missing_fields: list[str] = Field(default_factory=list, max_length=0)
+    parameter_status: Literal["not_supported"] = "not_supported"
+
+
+type ParsedAction = ParsedSupportedAction | ParsedUnsupportedAction
+
+
+class ActionParsingResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    success: Literal[True] = True
+    text: str
+    actions: list[ParsedAction] = Field(min_length=1)
