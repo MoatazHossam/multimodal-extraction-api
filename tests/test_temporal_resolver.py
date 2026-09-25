@@ -2,9 +2,17 @@ from datetime import datetime
 
 import pytest
 
-from app.services.temporal_resolver import resolve_temporal
+from app.services.temporal_resolver import TemporalResolution, resolve_temporal
 
 REFERENCE = datetime.fromisoformat("2026-09-25T04:44:00+04:00")
+
+
+def test_temporal_resolution_can_be_created() -> None:
+    assert TemporalResolution() == TemporalResolution(
+        date=None,
+        relative_to=None,
+        offset_minutes=None,
+    )
 
 
 @pytest.mark.parametrize(

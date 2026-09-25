@@ -1,6 +1,7 @@
 import re
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date as Date
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 
@@ -8,7 +9,7 @@ from zoneinfo import ZoneInfo
 class TemporalResolution:
     """Only temporal facts that can be derived without a model or a clock."""
 
-    date: date | None = None
+    date: Date | None = None
     relative_to: str | None = None
     offset_minutes: int | None = None
 
