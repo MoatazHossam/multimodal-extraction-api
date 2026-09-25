@@ -14,7 +14,7 @@ Text extraction (future adapters for OCR and transcription)
     ↓
 Normalized text
     ↓
-Action detector → ordered actions[] → future action-specific schemas
+Action detector → ordered actions[] → action-specific parameter schemas
     or
 Workflow-specific extraction
     ↓
@@ -87,6 +87,49 @@ Supported action types are `create_task`, `create_meeting`, `send_email`, `creat
 `create_reminder`, `create_note`, `follow_up`, and `unknown`. Results preserve source order. A
 non-actionable input produces one `unknown` item containing the original text.
 
+### Extract action parameters
+
+Extract validated parameters for one previously detected task, meeting, email, or reminder. The
+full original text is supplied separately so references such as Arabic `له` or English `him` can
+be resolved without expanding the detected action clause. `reference_datetime` (including its UTC
+offset) is the sole reference for relative dates, and `timezone` must be an IANA timezone name.
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/actions/extract-parameters \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "original_text": "اعمل اجتماع مع أحمد بكرة الساعة 10 وابعتله إيميل بالتفاصيل",
+    "action": {
+      "action_type": "create_meeting",
+      "source_text": "اعمل اجتماع مع أحمد بكرة الساعة 10"
+    },
+    "reference_datetime": "2026-09-25T04:45:00+04:00",
+    "timezone": "Asia/Dubai"
+  }'
+```
+
+```json
+{
+  "success": true,
+  "action_type": "create_meeting",
+  "source_text": "اعمل اجتماع مع أحمد بكرة الساعة 10",
+  "parameters": {
+    "title": null,
+    "attendees": ["أحمد"],
+    "date": "2026-09-26",
+    "time": "10:00",
+    "duration_minutes": null,
+    "location": null,
+    "agenda": null
+  },
+  "missing_fields": []
+}
+```
+
+The endpoint does not execute actions. Values are validated against the selected action schema,
+and `missing_fields` reports only execution-critical information. Unsupported action types return
+HTTP 422; invalid model output returns HTTP 502.
+
 ## Configuration
 
 Copy the example file and adjust it only when your Ollama service or model differs:
@@ -154,5 +197,5 @@ be added in a later milestone without changing the application.
 3. Register the workflow in the `WorkflowRegistry` in `app/main.py`.
 4. Add service and API tests covering valid, missing, and malformed fields.
 
-Future task, meeting, email, and other action-specific extraction workflows can consume the action
-detector's ordered output while reusing the same provider contract.
+Additional action-specific extraction workflows can consume the action detector's ordered output
+while reusing the same provider contract.

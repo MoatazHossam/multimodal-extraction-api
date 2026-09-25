@@ -9,10 +9,15 @@ from app.api.v1.extraction import router as extraction_router
 from app.config import Settings, get_settings
 from app.schemas.responses import HealthResponse
 from app.services.action_detection_service import ActionDetectionService
+from app.services.action_parameter_extraction_service import ActionParameterExtractionService
 from app.services.extraction_service import ExtractionService
 from app.workflows.action_detection import ActionDetectionWorkflow
 from app.workflows.assistance_request import AssistanceRequestWorkflow
 from app.workflows.base import WorkflowRegistry
+from app.workflows.email_parameters import EmailParameterWorkflow
+from app.workflows.meeting_parameters import MeetingParameterWorkflow
+from app.workflows.reminder_parameters import ReminderParameterWorkflow
+from app.workflows.task_parameters import TaskParameterWorkflow
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -22,12 +27,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         model=settings.ollama_model,
         timeout_seconds=settings.ollama_timeout_seconds,
     )
-    registry = WorkflowRegistry([AssistanceRequestWorkflow(), ActionDetectionWorkflow()])
+    registry = WorkflowRegistry(
+        [
+            AssistanceRequestWorkflow(),
+            ActionDetectionWorkflow(),
+            TaskParameterWorkflow(),
+            MeetingParameterWorkflow(),
+            EmailParameterWorkflow(),
+            ReminderParameterWorkflow(),
+        ]
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.extraction_service = ExtractionService(provider, registry)
         app.state.action_detection_service = ActionDetectionService(provider, registry)
+        app.state.action_parameter_service = ActionParameterExtractionService(provider, registry)
         yield
         await provider.close()
 

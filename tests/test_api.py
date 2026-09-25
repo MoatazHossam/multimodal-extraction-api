@@ -5,10 +5,12 @@ from fastapi.testclient import TestClient
 from app.ai.provider import AIProvider
 from app.main import create_app
 from app.services.action_detection_service import ActionDetectionService
+from app.services.action_parameter_extraction_service import ActionParameterExtractionService
 from app.services.extraction_service import ExtractionService
 from app.workflows.action_detection import ActionDetectionWorkflow
 from app.workflows.assistance_request import AssistanceRequestWorkflow
 from app.workflows.base import WorkflowRegistry
+from app.workflows.meeting_parameters import MeetingParameterWorkflow
 
 
 class APIStubProvider(AIProvider):
@@ -42,6 +44,25 @@ class ActionAPIStubProvider(AIProvider):
                 {"action_type": "send_email", "source_text": "email him the details"},
                 {"action_type": "create_reminder", "source_text": "remind me before"},
             ]
+        }
+
+
+class ParameterAPIStubProvider(AIProvider):
+    async def extract_structured(
+        self,
+        *,
+        system_prompt: str,
+        user_text: str,
+        output_schema: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "title": None,
+            "attendees": ["أحمد"],
+            "date": "2026-09-26",
+            "time": "10:00",
+            "duration_minutes": None,
+            "location": None,
+            "agenda": None,
         }
 
 
@@ -98,3 +119,42 @@ def test_action_detection_endpoint_returns_ordered_actions() -> None:
             {"action_type": "create_reminder", "source_text": "remind me before"},
         ],
     }
+
+
+def test_action_parameter_extraction_endpoint() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        app.state.action_parameter_service = ActionParameterExtractionService(
+            ParameterAPIStubProvider(), WorkflowRegistry([MeetingParameterWorkflow()])
+        )
+        response = client.post(
+            "/api/v1/actions/extract-parameters",
+            json={
+                "original_text": "اعمل اجتماع مع أحمد بكرة الساعة 10",
+                "action": {
+                    "action_type": "create_meeting",
+                    "source_text": "اعمل اجتماع مع أحمد بكرة الساعة 10",
+                },
+                "reference_datetime": "2026-09-25T04:45:00+04:00",
+                "timezone": "Asia/Dubai",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["parameters"]["time"] == "10:00"
+    assert response.json()["parameters"]["date"] == "2026-09-26"
+    assert response.json()["missing_fields"] == []
+
+
+def test_unsupported_parameter_action_returns_422_without_calling_provider() -> None:
+    with TestClient(create_app()) as client:
+        response = client.post(
+            "/api/v1/actions/extract-parameters",
+            json={
+                "original_text": "Nothing actionable",
+                "action": {"action_type": "unknown", "source_text": "Nothing actionable"},
+                "reference_datetime": "2026-09-25T04:45:00+04:00",
+                "timezone": "Asia/Dubai",
+            },
+        )
+    assert response.status_code == 422
