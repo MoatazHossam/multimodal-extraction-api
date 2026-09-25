@@ -61,14 +61,13 @@ async def test_detects_single_action(text: str, action_type: str) -> None:
     assert provider.received_prompt is not None
 
 
-async def test_preserves_multiple_action_order() -> None:
-    text = (
-        "Schedule a meeting with Ahmed tomorrow at 10, email him the details, "
-        "and remind me one hour before."
-    )
-    service, _ = make_service(
-        {
-            "actions": [
+@pytest.mark.parametrize(
+    ("text", "actions"),
+    [
+        (
+            "Schedule a meeting with Ahmed tomorrow at 10, email him the details, "
+            "and remind me one hour before.",
+            [
                 {
                     "action_type": "create_meeting",
                     "source_text": "Schedule a meeting with Ahmed tomorrow at 10",
@@ -78,8 +77,30 @@ async def test_preserves_multiple_action_order() -> None:
                     "action_type": "create_reminder",
                     "source_text": "remind me one hour before",
                 },
-            ]
-        }
+            ],
+        ),
+        (
+            "اعمل اجتماع مع أحمد بكرة الساعة 10 وابعتله إيميل بالتفاصيل "
+            "وحطلي تذكير قبل الاجتماع بساعة",
+            [
+                {
+                    "action_type": "create_meeting",
+                    "source_text": "اعمل اجتماع مع أحمد بكرة الساعة 10",
+                },
+                {"action_type": "send_email", "source_text": "ابعتله إيميل بالتفاصيل"},
+                {
+                    "action_type": "create_reminder",
+                    "source_text": "حطلي تذكير قبل الاجتماع بساعة",
+                },
+            ],
+        ),
+    ],
+)
+async def test_preserves_order_and_cleanly_segments_multiple_actions(
+    text: str, actions: list[dict[str, str]]
+) -> None:
+    service, _ = make_service(
+        {"actions": actions}
     )
 
     result = await service.detect(ActionDetectionRequest(text=text))
@@ -89,6 +110,20 @@ async def test_preserves_multiple_action_order() -> None:
         "send_email",
         "create_reminder",
     ]
+    assert [action.source_text for action in result.actions] == [
+        action["source_text"] for action in actions
+    ]
+
+
+def test_prompt_requires_minimal_action_only_source_text_with_full_context_later() -> None:
+    prompt = ActionDetectionWorkflow().system_prompt
+
+    assert "smallest complete clause" in prompt
+    assert "Do not include words or clauses belonging to another detected action" in prompt
+    assert "Preserve the original language" in prompt
+    assert "do not paraphrase unnecessarily or invent missing context" in prompt
+    assert "Pronouns and references may remain unresolved" in prompt
+    assert "original full text as context" in prompt
 
 
 @pytest.mark.parametrize(
