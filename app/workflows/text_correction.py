@@ -7,15 +7,18 @@ _MODE_INSTRUCTIONS: dict[TextCorrectionMode, str] = {
         "punctuation, and sentence structure while preserving its meaning."
     ),
     "asr_repair": (
-        "Repair only clear speech-to-text errors. Fix merged words, missing spaces, phonetic "
-        "spellings, dialectal number recognition, hamza/alef forms, and duplicated or dropped "
+        "The input has already received deterministic normalization of high-confidence ASR "
+        "errors. Continue repairing only clear speech-to-text errors. Fix remaining merged "
+        "words, missing spaces, phonetic spellings, hamza/alef forms, and duplicated or dropped "
         "short words only when the context makes the repair certain. Preserve dialect rather "
-        "than converting it to Modern Standard Arabic."
+        "than converting it to Modern Standard Arabic, and retain the normalized number words."
     ),
     "asr_formal": (
-        "First repair clear speech-to-text errors, including merged words, missing spaces, "
-        "phonetic spellings, dialectal number recognition, and hamza/alef forms. Then rewrite "
-        "the repaired text as professional Modern Standard Arabic."
+        "The input has already received deterministic normalization of high-confidence ASR "
+        "errors. Repair any remaining clear speech-to-text errors, including merged words, "
+        "missing spaces, phonetic spellings, and hamza/alef forms, only when reliable. Then "
+        "rewrite the repaired text as professional Modern Standard Arabic while retaining the "
+        "normalized number words."
     ),
 }
 

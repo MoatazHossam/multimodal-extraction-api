@@ -45,14 +45,25 @@ async def test_repairs_merged_arabic_number_words(mode: str) -> None:
     provider = CorrectionStubProvider("واحد اثنين ثلاثة")
     service = TextCorrectionService(provider, correction_registry())
 
-    result = await service.correct(
-        TextCorrectionRequest(text="وحد اتنينتالتة", mode=mode)
-    )
+    result = await service.correct(TextCorrectionRequest(text="وحد اتنينتالتة", mode=mode))
 
     assert result.corrected_text == "واحد اثنين ثلاثة"
+    assert result.original_text == "وحد اتنينتالتة"
     assert result.changed is True
     assert result.mode == mode
-    assert provider.user_texts == ["وحد اتنينتالتة"]
+    assert provider.user_texts == ["واحد اثنين ثلاثة"]
+
+
+async def test_formal_mode_does_not_apply_asr_normalization() -> None:
+    text = "وحد اتنينتالتة"
+    provider = CorrectionStubProvider(text)
+    service = TextCorrectionService(provider, correction_registry())
+
+    result = await service.correct(TextCorrectionRequest(text=text, mode="formal"))
+
+    assert provider.user_texts == [text]
+    assert result.original_text == text
+    assert result.changed is False
 
 
 async def test_formalizes_dialectal_arabic_professionally() -> None:
@@ -61,9 +72,7 @@ async def test_formalizes_dialectal_arabic_professionally() -> None:
     provider = CorrectionStubProvider(corrected)
     service = TextCorrectionService(provider, correction_registry())
 
-    result = await service.correct(
-        TextCorrectionRequest(text=original, mode="formal")
-    )
+    result = await service.correct(TextCorrectionRequest(text=original, mode="formal"))
 
     assert result.corrected_text == corrected
     assert result.original_text == original
@@ -95,9 +104,7 @@ async def test_rejects_invented_or_changed_numeric_values() -> None:
     service = TextCorrectionService(provider, correction_registry())
 
     with pytest.raises(TextCorrectionOutputError):
-        await service.correct(
-            TextCorrectionRequest(text="راجع الملف 2048", mode="asr_repair")
-        )
+        await service.correct(TextCorrectionRequest(text="راجع الملف 2048", mode="asr_repair"))
 
 
 async def test_changed_is_computed_in_application_not_accepted_from_provider() -> None:

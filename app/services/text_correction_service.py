@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from app.ai.provider import AIProvider, AIProviderError
 from app.schemas.requests import TextCorrectionRequest
 from app.schemas.responses import TextCorrectionResponse
+from app.services.arabic_asr_normalizer import ArabicASRNormalizer
 from app.workflows.base import WorkflowRegistry
 
 
@@ -17,12 +18,16 @@ class TextCorrectionService:
     def __init__(self, provider: AIProvider, workflows: WorkflowRegistry) -> None:
         self._provider = provider
         self._workflows = workflows
+        self._asr_normalizer = ArabicASRNormalizer()
 
     async def correct(self, request: TextCorrectionRequest) -> TextCorrectionResponse:
         workflow = self._workflows.get(f"text_correction_{request.mode}")
+        llm_input = request.text
+        if request.mode in ("asr_repair", "asr_formal"):
+            llm_input = self._asr_normalizer.normalize(request.text)
         raw_data = await self._provider.extract_structured(
             system_prompt=workflow.system_prompt,
-            user_text=request.text,
+            user_text=llm_input,
             output_schema=workflow.output_json_schema(),
         )
         try:
