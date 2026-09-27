@@ -13,6 +13,7 @@ type ActionType = Literal[
     "follow_up",
     "unknown",
 ]
+type TextCorrectionMode = Literal["formal", "asr_repair", "asr_formal"]
 
 
 class HealthResponse(BaseModel):
@@ -26,6 +27,31 @@ class TextExtractionResponse(BaseModel):
     workflow: str
     data: dict[str, Any]
     missing_fields: list[str]
+
+
+class TextCorrectionOutput(BaseModel):
+    """The only field the model is allowed to generate for text correction."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    corrected_text: str = Field(min_length=1, max_length=50_000)
+
+    @field_validator("corrected_text")
+    @classmethod
+    def reject_blank_corrected_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("corrected_text must not be blank")
+        return value
+
+
+class TextCorrectionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    success: Literal[True] = True
+    original_text: str
+    corrected_text: str
+    changed: bool
+    mode: TextCorrectionMode
 
 
 class DetectedAction(BaseModel):

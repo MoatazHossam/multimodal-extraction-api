@@ -1,16 +1,19 @@
 # Multimodal Extraction API
 
 A portable, on-premises FastAPI foundation for converting Arabic or English text into structured
-JSON with a locally hosted Ollama model. This milestone accepts text for action detection or
-one-call action parsing, as well as workflow-specific extraction. Audio transcription, OCR,
-uploads, persistence, authentication, action execution, and external integrations are deliberately
-out of scope.
+JSON with a locally hosted Ollama model. The API also provides independent Arabic text correction
+for written and speech-to-text input. This milestone accepts text for correction, action detection,
+one-call action parsing, or workflow-specific extraction. Audio transcription, OCR, uploads,
+persistence, authentication, action execution, and external integrations are deliberately out of
+scope.
 
 ## Architecture
 
 ```text
 Input (text)
     ↓
+Independent Arabic correction/normalization (optional)
+    or
 Text extraction (future adapters for OCR and transcription)
     ↓
 Normalized text
@@ -49,6 +52,38 @@ curl -X POST http://127.0.0.1:8000/api/v1/extract/text \
 The response contains the original text, selected workflow, validated workflow data, and the names
 of fields for which the source contained no value. Interactive OpenAPI documentation is available
 at `http://127.0.0.1:8000/docs`.
+
+### Correct Arabic text
+
+Correct Arabic independently of action detection and parameter extraction. Choose `formal` to
+rewrite text as professional Modern Standard Arabic, `asr_repair` to conservatively repair likely
+speech-to-text errors without unnecessarily removing dialect, or `asr_formal` to repair an ASR
+transcript and then formalize it.
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/text/correct \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "text": "وحد اتنينتالتة",
+    "mode": "asr_formal"
+  }'
+```
+
+```json
+{
+  "success": true,
+  "original_text": "وحد اتنينتالتة",
+  "corrected_text": "واحد اثنين ثلاثة",
+  "changed": true,
+  "mode": "asr_formal"
+}
+```
+
+The service preserves ambiguous tokens rather than guessing and instructs the model never to invent
+names, identifiers, contact details, dates, times, amounts, or unsupported facts. Literal numeric
+values and email addresses are also checked by the application before a result is returned.
+Correction does not invoke the action parser. Provider timeouts return HTTP 504, provider/model or
+invalid correction output failures return HTTP 502, and invalid requests return HTTP 422.
 
 ### Detect actions
 

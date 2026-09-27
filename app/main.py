@@ -6,12 +6,14 @@ from fastapi import FastAPI
 from app.ai.ollama_provider import OllamaProvider
 from app.api.v1.actions import router as actions_router
 from app.api.v1.extraction import router as extraction_router
+from app.api.v1.text import router as text_router
 from app.config import Settings, get_settings
 from app.schemas.responses import HealthResponse
 from app.services.action_detection_service import ActionDetectionService
 from app.services.action_parameter_extraction_service import ActionParameterExtractionService
 from app.services.action_parsing_service import ActionParsingService
 from app.services.extraction_service import ExtractionService
+from app.services.text_correction_service import TextCorrectionService
 from app.workflows.action_detection import ActionDetectionWorkflow
 from app.workflows.assistance_request import AssistanceRequestWorkflow
 from app.workflows.base import WorkflowRegistry
@@ -19,6 +21,7 @@ from app.workflows.email_parameters import EmailParameterWorkflow
 from app.workflows.meeting_parameters import MeetingParameterWorkflow
 from app.workflows.reminder_parameters import ReminderParameterWorkflow
 from app.workflows.task_parameters import TaskParameterWorkflow
+from app.workflows.text_correction import TextCorrectionWorkflow
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -36,6 +39,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             MeetingParameterWorkflow(),
             EmailParameterWorkflow(),
             ReminderParameterWorkflow(),
+            TextCorrectionWorkflow("formal"),
+            TextCorrectionWorkflow("asr_repair"),
+            TextCorrectionWorkflow("asr_formal"),
         ]
     )
 
@@ -47,6 +53,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.action_parsing_service = ActionParsingService(
             app.state.action_detection_service, app.state.action_parameter_service
         )
+        app.state.text_correction_service = TextCorrectionService(provider, registry)
         yield
         await provider.close()
 
@@ -62,6 +69,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     application.include_router(extraction_router)
     application.include_router(actions_router)
+    application.include_router(text_router)
     return application
 
 

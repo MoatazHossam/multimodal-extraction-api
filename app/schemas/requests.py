@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.schemas.responses import DetectedAction
+from app.schemas.responses import DetectedAction, TextCorrectionMode
 
 
 class TextExtractionRequest(BaseModel):
@@ -11,6 +11,20 @@ class TextExtractionRequest(BaseModel):
 
     text: str = Field(min_length=1, max_length=50_000)
     workflow: str = Field(min_length=1, max_length=100)
+
+    @field_validator("text")
+    @classmethod
+    def reject_blank_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("text must not be blank")
+        return value
+
+
+class TextCorrectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    text: str = Field(min_length=1, max_length=50_000)
+    mode: TextCorrectionMode
 
     @field_validator("text")
     @classmethod
