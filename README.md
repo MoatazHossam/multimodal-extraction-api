@@ -247,6 +247,8 @@ cp .env.example .env
 | `GROQ_MODEL` | `qwen/qwen3.8-27b` | Groq model name |
 | `GROQ_BASE_URL` | `https://api.groq.com/openai/v1` | Groq OpenAI-compatible API endpoint |
 | `GROQ_TIMEOUT_SECONDS` | `60` | End-to-end Groq request timeout |
+| `PADDLE_TEXT_DETECTION_MODEL` | `PP-OCRv5_mobile_det` | Paddle text detection model |
+| `PADDLE_TEXT_RECOGNITION_MODEL` | `arabic_PP-OCRv5_mobile_rec` | Paddle Arabic/English recognition model |
 
 Use `AI_PROVIDER=ollama` for the local/on-prem provider; it requires no credentials and remains
 the default. Ollama is accessible only on the shared internal Docker network, and this Compose
@@ -292,6 +294,11 @@ docker compose build
 docker compose up -d
 curl http://127.0.0.1:8000/health
 ```
+
+The first OCR startup on a host downloads the configured Paddle models and can take longer than
+subsequent starts. Compose stores them in the named `paddle_models` volume, so
+`docker compose up -d --build` reuses the cache across API image and container rebuilds. Remove
+that volume only when you intentionally want Paddle to download the models again.
 
 The API is published at `127.0.0.1:8000`, not on the server's public interfaces. Moving between a
 temporary VPS and an on-premises host requires only Docker, the external `ai_internal` network, an

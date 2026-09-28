@@ -10,14 +10,18 @@ from app.ocr.provider import OCRProvider, OCRProviderError
 class PaddleOCRProvider(OCRProvider):
     """CPU-only PP-OCRv5 adapter. Paddle-specific values stay behind this boundary."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        text_detection_model_name: str = "PP-OCRv5_mobile_det",
+        text_recognition_model_name: str = "arabic_PP-OCRv5_mobile_rec",
+    ) -> None:
         # Importing here keeps module imports and mocked tests independent of Paddle's
         # sizeable native runtime. The production app constructs this once at startup.
         from paddleocr import PaddleOCR
 
         self._engine = PaddleOCR(
-            lang="ar",
-            ocr_version="PP-OCRv5",
+            text_detection_model_name=text_detection_model_name,
+            text_recognition_model_name=text_recognition_model_name,
             device="cpu",
             enable_mkldnn=True,
             use_doc_orientation_classify=False,
