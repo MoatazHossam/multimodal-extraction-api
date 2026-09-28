@@ -9,6 +9,11 @@ WORKDIR /app
 
 COPY pyproject.toml ./
 COPY app ./app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libgl1 \
+        libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir .
 
 RUN useradd --create-home --uid 10001 appuser \
