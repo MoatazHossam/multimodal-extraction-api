@@ -3,11 +3,11 @@
 A portable, on-premises FastAPI foundation for converting Arabic or English text into structured
 JSON with a configuration-selected AI provider. Ollama remains the default for fully local,
 on-premises operation; Groq is an optional hosted provider for development and testing. The API
-also provides independent Arabic text correction
-for written and speech-to-text input. This milestone accepts text for correction, action detection,
-one-call action parsing, or workflow-specific extraction. Audio transcription, OCR, uploads,
+also provides independent Arabic/English OCR and Arabic text correction
+for written and speech-to-text input. This milestone accepts OCR uploads and text for correction,
+action detection, one-call action parsing, or workflow-specific extraction. Audio transcription,
 persistence, authentication, action execution, and external integrations are deliberately out of
-scope.
+scope; OCR uploads are processed transiently and never persisted.
 
 ## Architecture
 
@@ -34,6 +34,43 @@ detection uses the same provider and workflow registry as detailed extraction. A
 does not require a new provider.
 
 ## API
+
+### Extract text with OCR
+
+`POST /api/v1/ocr/extract` accepts a multipart field named `file` containing a JPEG, PNG, WebP,
+or PDF. It uses the local, CPU-only PP-OCRv5 Arabic model (which also recognizes English) and
+returns recognized lines in page order:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/ocr/extract \
+  -F 'file=@document.pdf;type=application/pdf'
+```
+
+```json
+{
+  "success": true,
+  "filename": "document.pdf",
+  "page_count": 2,
+  "text": "نص الصفحة الأولى\nPage two text",
+  "pages": [
+    {"page_number": 1, "text": "نص الصفحة الأولى"},
+    {"page_number": 2, "text": "Page two text"}
+  ]
+}
+```
+
+This endpoint performs **OCR extraction only**: it does **no grammar correction** and **no action
+detection**. It returns OCR output as recognized, without sending it to Qwen, translating it, or
+rewriting it. Compose the independent endpoints explicitly when those additional operations are
+desired:
+
+```text
+/ocr/extract → extracted text → optional /text/correct → optional /actions/parse
+```
+
+Uploads are limited to 15 MB and PDFs to 20 pages. PDF pages are rasterized and recognized
+sequentially to bound memory and CPU use. Limit violations return HTTP 413; invalid MIME types,
+empty files, and malformed files return HTTP 422; OCR engine failures return HTTP 500.
 
 ### Health
 
