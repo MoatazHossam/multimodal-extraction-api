@@ -23,7 +23,7 @@ class PaddleOCRProvider(OCRProvider):
             text_detection_model_name=text_detection_model_name,
             text_recognition_model_name=text_recognition_model_name,
             device="cpu",
-            enable_mkldnn=True,
+            enable_mkldnn=False,
             use_doc_orientation_classify=False,
             use_doc_unwarping=False,
             use_textline_orientation=True,
