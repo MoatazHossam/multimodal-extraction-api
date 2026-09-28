@@ -43,6 +43,7 @@ def test_paddle_provider_uses_mobile_models_on_cpu(monkeypatch: pytest.MonkeyPat
     assert construction["text_detection_model_name"] == "PP-OCRv5_mobile_det"
     assert construction["text_recognition_model_name"] == "arabic_PP-OCRv5_mobile_rec"
     assert construction["device"] == "cpu"
+    assert construction["enable_mkldnn"] is False
     assert "lang" not in construction
     assert "ocr_version" not in construction
 
