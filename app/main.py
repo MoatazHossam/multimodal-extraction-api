@@ -1,6 +1,7 @@
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from functools import partial
 
 from fastapi import FastAPI
 
@@ -33,7 +34,7 @@ def create_app(
     settings: Settings | None = None,
     *,
     ocr_provider: OCRProvider | None = None,
-    ocr_provider_factory: type[OCRProvider] | None = None,
+    ocr_provider_factory: Callable[[], OCRProvider] | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     provider = create_ai_provider(settings)
@@ -87,4 +88,12 @@ def create_app(
     return application
 
 
-app = create_app(ocr_provider_factory=PaddleOCRProvider)
+production_settings = get_settings()
+app = create_app(
+    settings=production_settings,
+    ocr_provider_factory=partial(
+        PaddleOCRProvider,
+        text_detection_model_name=production_settings.paddle_text_detection_model,
+        text_recognition_model_name=production_settings.paddle_text_recognition_model,
+    ),
+)

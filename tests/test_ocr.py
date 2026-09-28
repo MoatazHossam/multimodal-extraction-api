@@ -1,10 +1,13 @@
+import sys
 from io import BytesIO
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.main import create_app
+from app.ocr.paddle_provider import PaddleOCRProvider
 from app.ocr.provider import OCRProvider, OCRProviderError
 from app.services.ocr_service import OCRLimitError, OCRService
 
@@ -24,6 +27,24 @@ def image_bytes(format_name: str) -> bytes:
     output = BytesIO()
     Image.new("RGB", (12, 8), "white").save(output, format=format_name)
     return output.getvalue()
+
+
+def test_paddle_provider_uses_mobile_models_on_cpu(monkeypatch: pytest.MonkeyPatch) -> None:
+    construction: dict[str, object] = {}
+
+    class FakePaddleOCR:
+        def __init__(self, **kwargs: object) -> None:
+            construction.update(kwargs)
+
+    monkeypatch.setitem(sys.modules, "paddleocr", SimpleNamespace(PaddleOCR=FakePaddleOCR))
+
+    PaddleOCRProvider()
+
+    assert construction["text_detection_model_name"] == "PP-OCRv5_mobile_det"
+    assert construction["text_recognition_model_name"] == "arabic_PP-OCRv5_mobile_rec"
+    assert construction["device"] == "cpu"
+    assert "lang" not in construction
+    assert "ocr_version" not in construction
 
 
 @pytest.mark.parametrize(

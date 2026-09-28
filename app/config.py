@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     groq_model: str = Field(default="qwen/qwen3.8-27b", min_length=1)
     groq_base_url: AnyHttpUrl = Field(default="https://api.groq.com/openai/v1")
     groq_timeout_seconds: float = Field(default=60.0, gt=0)
+    paddle_text_detection_model: str = Field(default="PP-OCRv5_mobile_det", min_length=1)
+    paddle_text_recognition_model: str = Field(
+        default="arabic_PP-OCRv5_mobile_rec", min_length=1
+    )
 
     @model_validator(mode="after")
     def require_selected_provider_credentials(self) -> "Settings":
