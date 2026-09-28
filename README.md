@@ -1,7 +1,9 @@
 # Multimodal Extraction API
 
 A portable, on-premises FastAPI foundation for converting Arabic or English text into structured
-JSON with a locally hosted Ollama model. The API also provides independent Arabic text correction
+JSON with a configuration-selected AI provider. Ollama remains the default for fully local,
+on-premises operation; Groq is an optional hosted provider for development and testing. The API
+also provides independent Arabic text correction
 for written and speech-to-text input. This milestone accepts text for correction, action detection,
 one-call action parsing, or workflow-specific extraction. Audio transcription, OCR, uploads,
 persistence, authentication, action execution, and external integrations are deliberately out of
@@ -26,7 +28,8 @@ Provider-neutral service + validated structured JSON
 ```
 
 HTTP controllers know only their application services. Services select a workflow, each workflow
-owns its prompt and Pydantic output model, and the `AIProvider` interface isolates Ollama. Action
+owns its prompt and Pydantic output model, and the `AIProvider` interface isolates provider-specific
+HTTP APIs. Action
 detection uses the same provider and workflow registry as detailed extraction. Adding a workflow
 does not require a new provider.
 
@@ -191,7 +194,7 @@ HTTP 422; invalid model output returns HTTP 502.
 
 ## Configuration
 
-Copy the example file and adjust it only when your Ollama service or model differs:
+Copy the example file and select a provider:
 
 ```bash
 cp .env.example .env
@@ -199,16 +202,25 @@ cp .env.example .env
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
+| `AI_PROVIDER` | `ollama` | Provider to use: `ollama` or `groq` |
 | `OLLAMA_BASE_URL` | `http://ollama:11434` | Internal Ollama HTTP endpoint |
 | `OLLAMA_MODEL` | `qwen3:1.7b` | Installed Ollama model name |
 | `OLLAMA_TIMEOUT_SECONDS` | `60` | End-to-end provider request timeout |
+| `GROQ_API_KEY` | _(unset)_ | Groq credential; required only when Groq is selected |
+| `GROQ_MODEL` | `qwen/qwen3.8-27b` | Groq model name |
+| `GROQ_BASE_URL` | `https://api.groq.com/openai/v1` | Groq OpenAI-compatible API endpoint |
+| `GROQ_TIMEOUT_SECONDS` | `60` | End-to-end Groq request timeout |
 
-No credentials are required or committed. Ollama remains accessible only on the shared internal
-Docker network; this Compose project does not publish an Ollama port.
+Use `AI_PROVIDER=ollama` for the local/on-prem provider; it requires no credentials and remains
+the default. Ollama is accessible only on the shared internal Docker network, and this Compose
+project does not publish an Ollama port. Use `AI_PROVIDER=groq` only as an optional hosted
+development/testing provider and set `GROQ_API_KEY` in your local `.env`. Never commit that key.
+Provider choice is application configuration only: workflows, schemas, corrections, and business
+logic use the same `AIProvider` abstraction with either option.
 
 ## Local Python development
 
-Python 3.12 and a reachable Ollama instance are required for live extraction.
+Python 3.12 and a reachable instance of the selected provider are required for live extraction.
 
 ```bash
 python3.12 -m venv .venv

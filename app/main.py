@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.ai.ollama_provider import OllamaProvider
+from app.ai.factory import create_ai_provider
 from app.api.v1.actions import router as actions_router
 from app.api.v1.extraction import router as extraction_router
 from app.api.v1.text import router as text_router
@@ -26,11 +26,7 @@ from app.workflows.text_correction import TextCorrectionWorkflow
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
-    provider = OllamaProvider(
-        base_url=str(settings.ollama_base_url),
-        model=settings.ollama_model,
-        timeout_seconds=settings.ollama_timeout_seconds,
-    )
+    provider = create_ai_provider(settings)
     registry = WorkflowRegistry(
         [
             AssistanceRequestWorkflow(),
